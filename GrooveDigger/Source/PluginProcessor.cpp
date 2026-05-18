@@ -61,9 +61,9 @@ void GrooveDiggerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     maybeRegenerate();
 
     auto posOpt = getPlayHead() ? getPlayHead()->getPosition()
-                                : std::optional<juce::AudioPlayHead::PositionInfo>{};
+                                : juce::Optional<juce::AudioPlayHead::PositionInfo>{};
 
-    if (!posOpt.has_value() || !posOpt->getIsPlaying())
+    if (!posOpt.hasValue() || !posOpt->getIsPlaying())
     {
         wasPlaying = false;
         midi.clear();
@@ -112,8 +112,8 @@ void GrooveDiggerProcessor::scheduleEvents(juce::MidiBuffer& midi,
     int         numSteps = (int)steps.size();
     if (numSteps == 0) return;
 
-    double bpm          = pos.getBpm().value_or(120.0);
-    double ppqNow       = pos.getPpqPosition().value_or(0.0);
+    double bpm          = pos.getBpm().hasValue()          ? *pos.getBpm()          : 120.0;
+    double ppqNow       = pos.getPpqPosition().hasValue()   ? *pos.getPpqPosition()  : 0.0;
     double ppqPerSample = bpm / 60.0 / sampleRate;
     double bufEndPPQ    = ppqNow + numSamples * ppqPerSample;
     double phrasePPQ    = numSteps * GrooveEngine::kSixteenthPPQ;
