@@ -1,0 +1,81 @@
+#pragma once
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+
+//==============================================================================
+class KickGrid : public juce::Component
+{
+public:
+    explicit KickGrid(juce::AudioProcessorValueTreeState& apvts);
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
+private:
+    juce::OwnedArray<juce::TextButton> buttons;
+    juce::OwnedArray<juce::AudioProcessorValueTreeState::ButtonAttachment> attachments;
+};
+
+//==============================================================================
+class GrooveDiggerEditor : public juce::AudioProcessorEditor,
+                           private juce::Timer
+{
+public:
+    explicit GrooveDiggerEditor(GrooveDiggerProcessor&);
+    ~GrooveDiggerEditor() override;
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
+private:
+    GrooveDiggerProcessor& proc;
+
+    // ── Header ───────────────────────────────────────────────────────────────
+    juce::Label titleLabel;
+
+    // ── Key / Scale ──────────────────────────────────────────────────────────
+    juce::Label    keyLabel, scaleLabel;
+    juce::ComboBox keyBox, scaleBox;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment keyAttach, scaleAttach;
+
+    // ── Main knobs (8) ───────────────────────────────────────────────────────
+    juce::Slider densityKnob, syncopKnob, restKnob, swingKnob,
+                 varKnob, barsKnob, octRangeKnob, rootOctKnob;
+    juce::Label  densityLbl, syncopLbl, restLbl, swingLbl,
+                 varLbl, barsLbl, octRangeLbl, rootOctLbl;
+
+    juce::AudioProcessorValueTreeState::SliderAttachment
+        densityAtt, syncopAtt, restAtt, swingAtt,
+        varAtt, barsAtt, octRangeAtt, rootOctAtt;
+
+    // ── Regenerate ───────────────────────────────────────────────────────────
+    juce::TextButton regenBtn;
+
+    // ── Kick grid ────────────────────────────────────────────────────────────
+    KickGrid kickGrid;
+
+    // ── Synth section ────────────────────────────────────────────────────────
+    juce::ToggleButton synthToggle;
+    juce::AudioProcessorValueTreeState::ButtonAttachment synthToggleAtt;
+
+    juce::Slider blendKnob, filterKnob, resKnob,
+                 atkKnob, decKnob, susKnob, relKnob,
+                 glideKnob, driveKnob;
+    juce::Label  blendLbl, filterLbl, resLbl,
+                 atkLbl, decLbl, susLbl, relLbl,
+                 glideLbl, driveLbl;
+
+    juce::AudioProcessorValueTreeState::SliderAttachment
+        blendAtt, filterAtt, resAtt,
+        atkAtt, decAtt, susAtt, relAtt,
+        glideAtt, driveAtt;
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    void timerCallback() override;
+    void refreshSynthVisibility();
+
+    static void styleKnob(juce::Slider& s, juce::Label& lbl,
+                          const juce::String& text, juce::Component* parent);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GrooveDiggerEditor)
+};
