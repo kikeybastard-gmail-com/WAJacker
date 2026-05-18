@@ -63,3 +63,23 @@ target_link_libraries(GrooveDigger
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# ── macOS: patch Standalone Info.plist with required privacy keys ─────────────
+if(APPLE)
+    set(STANDALONE_APP
+        "${CMAKE_BINARY_DIR}/GrooveDigger_artefacts/Standalone/Groove Digger.app")
+    set(STANDALONE_PLIST "${STANDALONE_APP}/Contents/Info.plist")
+
+    add_custom_command(TARGET GrooveDigger_Standalone POST_BUILD
+        COMMAND sh -c
+            "/usr/libexec/PlistBuddy \
+                -c 'Add :NSBluetoothAlwaysUsageDescription string \"Used for Bluetooth MIDI device discovery\"' \
+                '${STANDALONE_PLIST}' 2>/dev/null; \
+             /usr/libexec/PlistBuddy \
+                -c 'Set :NSBluetoothAlwaysUsageDescription \"Used for Bluetooth MIDI device discovery\"' \
+                '${STANDALONE_PLIST}' 2>/dev/null; \
+             codesign --force --deep --sign - '${STANDALONE_APP}'"
+        COMMENT "Patching Standalone plist and re-signing"
+        VERBATIM
+    )
+endif()

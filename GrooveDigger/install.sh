@@ -38,9 +38,23 @@ fi
 # Standalone app
 APP_SRC="$ARTEFACTS/Standalone/Groove Digger.app"
 APP_DEST="/Applications"
+INSTALLED_APP="$APP_DEST/Groove Digger.app"
 if [ -d "$APP_SRC" ]; then
     cp -r "$APP_SRC" "$APP_DEST/"
-    echo "    App  → $APP_DEST"
+
+    # Patch required macOS privacy key (Bluetooth MIDI scanning)
+    PLIST="$INSTALLED_APP/Contents/Info.plist"
+    /usr/libexec/PlistBuddy \
+        -c "Add :NSBluetoothAlwaysUsageDescription string 'Used for Bluetooth MIDI device discovery'" \
+        "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy \
+        -c "Set :NSBluetoothAlwaysUsageDescription 'Used for Bluetooth MIDI device discovery'" \
+        "$PLIST"
+
+    # Re-sign with ad-hoc signature after plist change
+    codesign --force --deep --sign - "$INSTALLED_APP"
+
+    echo "    App  → $APP_DEST (patched + signed)"
 else
     echo "    Standalone app not found, skipping"
 fi
