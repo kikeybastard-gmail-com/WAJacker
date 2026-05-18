@@ -17,9 +17,10 @@ endif()
 juce_add_plugin(GrooveDigger
     VERSION                     1.0.0
     COMPANY_NAME                "GrooveDigger"
+    BUNDLE_ID                   "com.groovedigger.plugin"
     PLUGIN_MANUFACTURER_CODE    Grdg
     PLUGIN_CODE                 Grdg
-    FORMATS                     VST3
+    FORMATS                     AU VST3 Standalone
     IS_SYNTH                    TRUE
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           TRUE
@@ -29,6 +30,7 @@ juce_add_plugin(GrooveDigger
     PLUGIN_NAME                 "Groove Digger"
     DESCRIPTION                 "Bassline generator with internal mono synth"
     VST3_CATEGORIES             "Instrument|Generator"
+    AU_MAIN_TYPE                kAudioUnitType_MusicDevice
 )
 
 juce_generate_juce_header(GrooveDigger)
