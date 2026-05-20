@@ -67,7 +67,7 @@ target_link_libraries(GrooveDigger
 # ── macOS: patch Standalone Info.plist with required privacy keys ─────────────
 if(APPLE)
     set(STANDALONE_APP
-        "${CMAKE_BINARY_DIR}/GrooveDigger_artefacts/Standalone/Groove Digger.app")
+        "${CMAKE_BINARY_DIR}/GrooveDigger_artefacts/Standalone/GrooveDigger.app")
     set(STANDALONE_PLIST "${STANDALONE_APP}/Contents/Info.plist")
 
     add_custom_command(TARGET GrooveDigger_Standalone POST_BUILD
