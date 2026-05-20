@@ -44,9 +44,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     p.push_back(std::make_unique<juce::AudioParameterBool>(
         IDs::regenerate, "Regenerate", false));
 
-    for (int i = 0; i < 16; ++i)
-        p.push_back(std::make_unique<juce::AudioParameterBool>(
-            IDs::kickStep(i), "Kick Step " + juce::String(i + 1), false));
+    p.push_back(std::make_unique<juce::AudioParameterFloat>(
+        IDs::sidechainThreshold, "Kick Threshold",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.15f));
 
     p.push_back(std::make_unique<juce::AudioParameterBool>(
         IDs::synthEnabled, "Synth Enabled", false));

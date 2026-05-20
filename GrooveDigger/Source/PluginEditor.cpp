@@ -14,35 +14,29 @@ namespace GDColours
 }
 
 //==============================================================================
-// KickGrid
+// SidechainMeter
 
-KickGrid::KickGrid(juce::AudioProcessorValueTreeState& apvts)
+void SidechainMeter::paint(juce::Graphics& g)
 {
-    for (int i = 0; i < 16; ++i)
+    const int numCells = 16;
+    float cellW = (float)getWidth() / numCells;
+    float h     = (float)getHeight();
+
+    for (int i = 0; i < numCells; ++i)
     {
-        auto* btn = buttons.add(new juce::TextButton(juce::String(i + 1)));
-        btn->setClickingTogglesState(true);
-        btn->setColour(juce::TextButton::buttonColourId,   GDColours::panel);
-        btn->setColour(juce::TextButton::buttonOnColourId, GDColours::accentOn);
-        btn->setColour(juce::TextButton::textColourOffId,  GDColours::textDim);
-        btn->setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
-        addAndMakeVisible(btn);
+        juce::Rectangle<float> cell (i * cellW + 1.0f, 1.0f, cellW - 2.0f, h - 2.0f);
+        bool lit = (currentMask >> i) & 1;
+        g.setColour(lit ? GDColours::accentOn : GDColours::panel);
+        g.fillRoundedRectangle(cell, 2.0f);
 
-        attachments.add(new juce::AudioProcessorValueTreeState::ButtonAttachment(
-            apvts, IDs::kickStep(i), *btn));
+        g.setColour(GDColours::textDim.withAlpha(0.4f));
+        g.drawRoundedRectangle(cell, 2.0f, 0.5f);
+
+        // Step number label
+        g.setColour(lit ? juce::Colours::white : GDColours::textDim);
+        g.setFont(juce::Font(9.0f));
+        g.drawText(juce::String(i + 1), cell.toNearestInt(), juce::Justification::centred);
     }
-}
-
-void KickGrid::paint(juce::Graphics& g)
-{
-    g.fillAll(GDColours::panelAlt);
-}
-
-void KickGrid::resized()
-{
-    int w = getWidth() / 16;
-    for (int i = 0; i < 16; ++i)
-        buttons[i]->setBounds(i * w, 0, w, getHeight());
 }
 
 //==============================================================================
@@ -67,7 +61,8 @@ void GrooveDiggerEditor::styleKnob(juce::Slider& s, juce::Label& lbl,
 }
 
 GrooveDiggerEditor::GrooveDiggerEditor(GrooveDiggerProcessor& p)
-    : AudioProcessorEditor(&p), proc(p), kickGrid(p.apvts),
+    : AudioProcessorEditor(&p), proc(p),
+      threshAtt   (p.apvts, IDs::sidechainThreshold, threshKnob),
       keyAttach   (p.apvts, IDs::key,   keyBox),
       scaleAttach (p.apvts, IDs::scale, scaleBox),
       densityAtt  (p.apvts, IDs::density,     densityKnob),
@@ -143,8 +138,9 @@ GrooveDiggerEditor::GrooveDiggerEditor(GrooveDiggerProcessor& p)
     octRangeKnob.setRange(1, 3, 1);
     rootOctKnob.setRange(2, 5, 1);
 
-    // Kick grid
-    addAndMakeVisible(kickGrid);
+    // Sidechain kick section
+    addAndMakeVisible(sidechainMeter);
+    styleKnob(threshKnob, threshLbl, "Threshold", this);
 
     // Synth toggle
     synthToggle.setButtonText("Internal Synth");
@@ -177,6 +173,8 @@ GrooveDiggerEditor::~GrooveDiggerEditor()
 void GrooveDiggerEditor::timerCallback()
 {
     refreshSynthVisibility();
+    uint16_t bits = proc.detectedKickBits.load(std::memory_order_relaxed);
+    sidechainMeter.setMask(bits);
 }
 
 void GrooveDiggerEditor::refreshSynthVisibility()
@@ -216,7 +214,7 @@ void GrooveDiggerEditor::paint(juce::Graphics& g)
     // Section labels
     g.setFont(juce::Font(9.5f, juce::Font::bold));
     g.setColour(GDColours::textDim);
-    g.drawText("KICK GRID", 18, 226, 70, 12, juce::Justification::left);
+    g.drawText("SIDECHAIN KICK", 18, 226, 100, 12, juce::Justification::left);
     g.drawText("SYNTH", 18, 284, 50, 12, juce::Justification::left);
 }
 
@@ -257,8 +255,19 @@ void GrooveDiggerEditor::resized()
     placeKnob(octRangeKnob, octRangeLbl, 6);
     placeKnob(rootOctKnob,  rootOctLbl,  7);
 
-    // Kick grid
-    kickGrid.setBounds(14, 236, W - 28, 34);
+    // Sidechain kick section: meter (left ~80%) + threshold knob (right ~20%)
+    {
+        juce::Rectangle<int> kickArea (14, 236, W - 28, 34);
+        int knobW = kickArea.getWidth() / 5;        // ~20 %
+        int meterW = kickArea.getWidth() - knobW;   // ~80 %
+
+        sidechainMeter.setBounds(kickArea.getX(), kickArea.getY(), meterW, kickArea.getHeight());
+
+        // Threshold knob sits just to the right; give it a bit more vertical room
+        int kx = kickArea.getX() + meterW + 2;
+        threshKnob.setBounds(kx, kickArea.getY() - 28, knobW - 2, kickArea.getHeight() + 24);
+        threshLbl.setBounds(kx, kickArea.getBottom() - 2, knobW - 2, 14);
+    }
 
     // Synth toggle
     synthToggle.setBounds(14, 286, 150, 22);

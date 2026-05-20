@@ -16,6 +16,7 @@ public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -43,6 +44,9 @@ public:
     // Called from the editor's Regenerate button (message thread).
     void triggerRegenerate() { regenPending.store(true); }
 
+    // Sidechain kick detection — written on audio thread, read from editor timer
+    std::atomic<uint16_t> detectedKickBits { 0 };
+
 private:
     struct PendingNoteOff
     {
@@ -57,6 +61,11 @@ private:
 
     std::atomic<bool>      regenPending { true };  // generate on first block
     float                  lastRegenParam = 0.0f;
+
+    // Sidechain envelope / edge detection state
+    float                  sidechainEnv   = 0.0f;
+    bool                   prevKickState  = false;
+    double                 lastBarPPQ     = -1.0;
 
     void maybeRegenerate();
     void scheduleEvents(juce::MidiBuffer& midi,

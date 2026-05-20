@@ -5,9 +5,26 @@
 
 GrooveDiggerProcessor::GrooveDiggerProcessor()
     : AudioProcessor(BusesProperties()
-          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+          .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+          .withInput ("Sidechain", juce::AudioChannelSet::stereo(), false)),
       apvts(*this, nullptr, "STATE", createParameterLayout())
 {
+}
+
+bool GrooveDiggerProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+{
+    // Must have stereo output
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    // Sidechain can be stereo, mono, or disabled
+    const auto& sc = layouts.getChannelSet(true, 1);
+    if (!sc.isDisabled() &&
+        sc != juce::AudioChannelSet::mono() &&
+        sc != juce::AudioChannelSet::stereo())
+        return false;
+
+    return true;
 }
 
 GrooveDiggerProcessor::~GrooveDiggerProcessor() {}
@@ -45,9 +62,10 @@ void GrooveDiggerProcessor::maybeRegenerate()
     int   octRange  = (int)apvts.getRawParameterValue(IDs::octaveRange)->load();
     int   rootOct   = (int)apvts.getRawParameterValue(IDs::rootOctave)->load();
 
+    uint16_t bits = detectedKickBits.load(std::memory_order_relaxed);
     bool kickMask[16];
     for (int i = 0; i < 16; ++i)
-        kickMask[i] = apvts.getRawParameterValue(IDs::kickStep(i))->load() > 0.5f;
+        kickMask[i] = (bits >> i) & 1;
 
     grooveEngine.regenerate(key, scale, bars * 16, density, syncop, restProb,
                             variation, octRange, rootOct, kickMask);
@@ -62,6 +80,56 @@ void GrooveDiggerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     auto posOpt = getPlayHead() ? getPlayHead()->getPosition()
                                 : juce::Optional<juce::AudioPlayHead::PositionInfo>{};
+
+    // ── Sidechain kick detection (runs regardless of playback state) ─────────
+    {
+        auto sc = getBusBuffer(buffer, true, 1);
+        const double sr = getSampleRate();
+
+        // Compute peak over block from first sidechain channel (if available)
+        float peak = 0.0f;
+        if (sc.getNumChannels() > 0)
+        {
+            const float* scData = sc.getReadPointer(0);
+            for (int s = 0; s < sc.getNumSamples(); ++s)
+                peak = std::max(peak, std::abs(scData[s]));
+        }
+
+        // Envelope follower: attack ~2ms, release ~80ms
+        const float attackCoeff  = (sr > 0.0) ? std::exp(-1.0 / (0.002 * sr)) : 0.0f;
+        const float releaseCoeff = (sr > 0.0) ? std::exp(-1.0 / (0.080 * sr)) : 0.0f;
+
+        if (peak > sidechainEnv)
+            sidechainEnv = attackCoeff  * sidechainEnv + (1.0f - attackCoeff)  * peak;
+        else
+            sidechainEnv = releaseCoeff * sidechainEnv + (1.0f - releaseCoeff) * peak;
+
+        float threshold = apvts.getRawParameterValue(IDs::sidechainThreshold)->load();
+        bool kickNow = (sidechainEnv > threshold);
+
+        // Rising-edge detection: only act when playback is active and PPQ is valid
+        if (posOpt.hasValue() && posOpt->getPpqPosition().hasValue())
+        {
+            double ppqNow = *posOpt->getPpqPosition();
+
+            // Clear mask at start of each new bar
+            if (lastBarPPQ >= 0.0 &&
+                std::floor(ppqNow / 4.0) != std::floor(lastBarPPQ / 4.0))
+            {
+                detectedKickBits.store(0, std::memory_order_relaxed);
+            }
+
+            if (kickNow && !prevKickState)
+            {
+                int step = (int)(std::fmod(ppqNow, 4.0) / 0.25) % 16;
+                detectedKickBits.fetch_or((uint16_t)(1u << step), std::memory_order_relaxed);
+            }
+
+            lastBarPPQ = ppqNow;
+        }
+
+        prevKickState = kickNow;
+    }
 
     if (!posOpt.hasValue() || !posOpt->getIsPlaying())
     {

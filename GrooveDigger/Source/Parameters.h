@@ -24,9 +24,9 @@ namespace IDs
     static const juce::String synthSustain = "synthSustain";
     static const juce::String synthRelease = "synthRelease";
     static const juce::String synthGlide   = "synthGlide";
-    static const juce::String synthDrive   = "synthDrive";
+    static const juce::String synthDrive          = "synthDrive";
 
-    inline juce::String kickStep(int i) { return "kickStep" + juce::String(i); }
+    static const juce::String sidechainThreshold  = "sidechainThreshold";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

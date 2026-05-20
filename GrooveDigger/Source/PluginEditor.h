@@ -3,17 +3,25 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-class KickGrid : public juce::Component
+class SidechainMeter : public juce::Component
 {
 public:
-    explicit KickGrid(juce::AudioProcessorValueTreeState& apvts);
+    SidechainMeter() = default;
 
-    void paint(juce::Graphics&) override;
-    void resized() override;
+    void setMask(uint16_t mask)
+    {
+        if (mask != currentMask)
+        {
+            currentMask = mask;
+            repaint();
+        }
+    }
+
+    void paint(juce::Graphics& g) override;
+    void resized() override {}
 
 private:
-    juce::OwnedArray<juce::TextButton> buttons;
-    juce::OwnedArray<juce::AudioProcessorValueTreeState::ButtonAttachment> attachments;
+    uint16_t currentMask = 0;
 };
 
 //==============================================================================
@@ -51,8 +59,11 @@ private:
     // ── Regenerate ───────────────────────────────────────────────────────────
     juce::TextButton regenBtn;
 
-    // ── Kick grid ────────────────────────────────────────────────────────────
-    KickGrid kickGrid;
+    // ── Sidechain kick section ───────────────────────────────────────────────
+    SidechainMeter sidechainMeter;
+    juce::Slider   threshKnob;
+    juce::Label    threshLbl;
+    juce::AudioProcessorValueTreeState::SliderAttachment threshAtt;
 
     // ── Synth section ────────────────────────────────────────────────────────
     juce::ToggleButton synthToggle;
